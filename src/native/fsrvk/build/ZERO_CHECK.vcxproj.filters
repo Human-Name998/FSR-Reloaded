@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\arshjot\Downloads\fsr2mod\src\native\fsrvk\build\CMakeFiles\b389c699db9729d8fbe566345fad4c18\generate.stamp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{993B6CB5-217D-3D28-B92B-0AFB791D1D91}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

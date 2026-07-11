@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\arshjot\Downloads\fsr2mod\src\native\fsrvk\vulkan_device.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\arshjot\Downloads\fsr2mod\src\native\fsrvk\vulkan_memory.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\arshjot\Downloads\fsr2mod\src\native\fsrvk\d3d12_device.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\arshjot\Downloads\fsr2mod\src\native\fsrvk\d3d12_shared_resources.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\arshjot\Downloads\fsr2mod\src\native\fsrvk\fsr4_context.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\arshjot\Downloads\fsr2mod\src\native\fsrvk\jni_bridge.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\arshjot\Downloads\fsr2mod\src\native\fsrvk\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{1B080852-C8CA-3DA7-838F-DE7F2ACD6A57}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
