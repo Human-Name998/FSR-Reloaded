@@ -1,0 +1,9 @@
+{
+    "key.fsr-reloaded.toggle": "Toggle FSR Upscaling",
+    "key.fsr-reloaded.cycle_version": "Cycle FSR Version (FSR1/FSR2)",
+    "key.fsr-reloaded.increase_sharpness": "Increase Sharpness",
+    "key.fsr-reloaded.decrease_sharpness": "Decrease Sharpness",
+    "key.fsr-reloaded.settings": "Open Settings",
+
+    "category.fsr-reloaded": "FSR Reloaded"
+}

@@ -1,0 +1,7 @@
+accessWidener v1 official
+
+accessible method com/mojang/blaze3d/opengl/GlTexture <init> (ILjava/lang/String;Lcom/mojang/blaze3d/textures/TextureFormat;IIIII)V
+accessible method com/mojang/blaze3d/opengl/GlTextureView <init> (Lcom/mojang/blaze3d/opengl/GlTexture;II)V
+accessible field  com/mojang/blaze3d/opengl/GlTexture id I
+accessible field  com/mojang/blaze3d/pipeline/RenderTarget colorTexture Lcom/mojang/blaze3d/textures/GpuTexture;
+accessible field  com/mojang/blaze3d/pipeline/RenderTarget colorTextureView Lcom/mojang/blaze3d/textures/GpuTextureView;

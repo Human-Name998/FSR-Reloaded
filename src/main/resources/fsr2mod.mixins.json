@@ -1,0 +1,23 @@
+{
+    "required": true,
+    "minVersion": "0.8.5",
+    "package": "com.fsr2mod.mixin",
+    "compatibilityLevel": "JAVA_25",
+    "client": [
+        "WindowMixin",
+        "GameRendererMixin",
+        "MinecraftClientMixin",
+        "MinecraftClientAccessor",
+        "GlTextureIdAccessor",
+        "RenderTargetAccessor",
+
+        "FramebufferBlitMixin",
+
+        "vulkanmod.VulkanModDeviceMixin",
+        "vulkanmod.VulkanModSwapchainMixin",
+        "vulkanmod.VulkanModMainPassMixin"
+    ],
+    "injectors": {
+        "defaultRequire": 1
+    }
+}
