@@ -1,0 +1,30 @@
+plugins {
+    id 'fabric-loom' version '1.6.+'
+}
+group = 'com.luckblocks'
+version = '1.0.0'
+sourceCompatibility = JavaVersion.VERSION_17
+targetCompatibility = JavaVersion.VERSION_17
+
+repositories {
+    mavenCentral()
+    maven { url 'https://maven.fabricmc.net/' }
+}
+
+dependencies {
+    minecraft 'com.mojang:minecraft:1.20.4'
+    mappings 'net.fabricmc:loom:1.6.+':nobom
+    modImplementation 'net.fabricmc:fabric-api:0.97.0+1.20.4'
+}
+
+loom {
+    runs {
+        client {
+            clientId 'fabric-client'
+            ide 'eclipse'
+        }
+        server {
+            serverId 'fabric-server'
+        }
+    }
+}
