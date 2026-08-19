@@ -1,0 +1,10 @@
+^C:\USERS\ARSHJOT\DOWNLOADS\FSR2MOD\SRC\NATIVE\FSRVK\CMAKELISTS.TXT
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/arshjot/Downloads/fsr2mod/src/native/fsrvk -BC:/Users/arshjot/Downloads/fsr2mod/src/native/fsrvk/build --check-stamp-file C:/Users/arshjot/Downloads/fsr2mod/src/native/fsrvk/build/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
