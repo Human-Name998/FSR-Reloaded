@@ -1,3 +1,0 @@
-C:/Users/arshjot/Downloads/fsr2mod/src/native/fsrvk/build/CMakeFiles/fsrvk.dir
-C:/Users/arshjot/Downloads/fsr2mod/src/native/fsrvk/build/CMakeFiles/ALL_BUILD.dir
-C:/Users/arshjot/Downloads/fsr2mod/src/native/fsrvk/build/CMakeFiles/ZERO_CHECK.dir
