@@ -1,0 +1,5 @@
+VRMODULE BINARY - Placeholder
+
+This file would contain a pre-compiled SPIR-V compute shader
+for Phase 0 testing. For now, the test uses vkCmdClearColorImage
+instead of requiring a compute shader.

@@ -1,0 +1,29 @@
+{
+    "schemaVersion": 1,
+    "id": "fsr-reloaded",
+    "version": "1.9.0",
+    "name": "FSR Reloaded",
+    "description": "Adds AMD FidelityFX Super Resolution upscaling (FSR 1 bilinear + FSR 2 temporal) to Minecraft.",
+    "authors": ["fsr2mod"],
+    "contact": {},
+    "license": "MIT",
+    "icon": "assets/fsr2mod/icon.png",
+    "environment": "client",
+    "entrypoints": {
+        "client": ["com.fsr2mod.FSRMod"]
+    },
+    "mixins": ["fsr2mod.mixins.json"],
+    "depends": {
+        "fabricloader": ">=0.18.1",
+        "minecraft": "1.21.11",
+        "fabric-api": "*"
+    },
+    "suggests": {
+        "modmenu": "*",
+        "cloth-config": "*"
+    },
+    "conflicts": {
+        "optifabric": "*",
+        "optifine": "*"
+    }
+}

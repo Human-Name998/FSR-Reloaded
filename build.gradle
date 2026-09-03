@@ -1,0 +1,178 @@
+// NOTE (1.21.11 port): must use the legacy `apply plugin` form.
+// Loom 1.16's extension checks `pluginManager.hasPlugin("net.fabricmc.fabric-loom")`
+// and hard-sets disableObfuscation=true when the namespaced plugin id is applied
+// (via plugins DSL), which breaks the mappings path ("Cannot use Mojang mappings in
+// a non-obfuscated environment" + "Configuration 'mappings' has no dependencies").
+buildscript {
+    repositories {
+        maven { url = "https://maven.fabricmc.net/" }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath "net.fabricmc:fabric-loom:${loom_version}"
+    }
+}
+
+apply plugin: 'fabric-loom'
+apply plugin: 'maven-publish'
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+loom {
+    splitEnvironmentSourceSets()
+    mods {
+        "fsr-reloaded" {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+}
+
+repositories {
+    maven { url = "https://maven.terraformersmc.com/releases/" }
+    maven { url = "https://maven.shedaniel.me/" }
+    maven { url = "https://modmaven.dev/" }
+    maven { url = "https://maven.caffeinemc.net/releases" }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings loom.officialMojangMappings()
+
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    // Dev-launch runtime deps the loader needs on the client classpath (loom
+    // drops loader transitive deps + compileOnly from the runClient argFile;
+    // without these the dev client dies with "ASM not detected" / missing mixin).
+    compileOnly "net.fabricmc:sponge-mixin:0.17.3+mixin.0.8.7"
+    runtimeOnly "net.fabricmc:sponge-mixin:0.17.3+mixin.0.8.7"
+    runtimeOnly "org.ow2.asm:asm:9.9"
+    runtimeOnly "org.ow2.asm:asm-tree:9.9"
+    runtimeOnly "org.ow2.asm:asm-commons:9.9"
+    runtimeOnly "org.ow2.asm:asm-analysis:9.9"
+    runtimeOnly "org.ow2.asm:asm-util:9.9"
+
+    modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
+    modCompileOnly "net.caffeinemc:sodium-fabric-api:${project.sodium_api_version}"
+
+    // VulkanMod — compileOnly (not bundled), for optional mixin targets.
+    // Port: uses the mc1.21.11 build when present. modCompileOnly so loom
+    // remaps the module's yarn-named classes to the project's official
+    // namespace at compile time (plain compileOnly leaks class_xxxx names).
+    modCompileOnly fileTree(dir: 'libs', include: ['VulkanMod-*1.21.11*.jar'])
+
+    // Unit tests for the pure (Minecraft-free) classifier classes in the main
+    // source set — e.g. BrokenCompositePredicate. No game needed at runtime.
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+processResources {
+    inputs.property "version", project.version
+    filteringCharset = "UTF-8"
+
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 21
+}
+
+publishing {
+    publications {
+        create("mavenJava", MavenPublication) {
+            artifactId = project.archives_base_name
+            from components.java
+        }
+    }
+}
+
+// Native C++ DLL build (FSR4 Phase 1: fsrvk.dll)
+// Requires: CMake 3.20+, Visual Studio 2022, Vulkan SDK
+tasks.register('buildNative') {
+    onlyIf {
+        file('src/native/fsrvk/CMakeLists.txt').exists()
+    }
+    // Declare the built DLL as an output so Gradle's up-to-date check can
+    // invalidate processResources/jar when native sources were recompiled.
+    // Without this, buildNative can recompile a changed .cpp but the jar
+    // stays UP-TO-DATE and silently bundles the STALE fsrvk.dll (2026-08-30:
+    // deployed jar carried a DLL whose md5 did not match a fresh build).
+    def nativeDll = file('src/native/fsrvk/build/Release/fsrvk.dll')
+    outputs.file(nativeDll)
+    // Track the native SOURCES as inputs so any .cpp/.h change re-triggers the
+    // cmake build. An outputs-only declaration is still invisible to Gradle's
+    // up-to-date check for source edits (2026-08-30: editing fsr4_context.cpp
+    // left buildNative UP-TO-DATE and the fix never reached the DLL).
+    inputs.files(fileTree('src/native/fsrvk') {
+        include '*.cpp', '*.h', '*.comp', 'CMakeLists.txt'
+    })
+    doLast {
+        def cmake = file('C:/Program Files/CMake/bin/cmake.exe').exists()
+            ? 'C:/Program Files/CMake/bin/cmake.exe'
+            : (file('C:/Program Files (x86)/CMake/bin/cmake.exe').exists()
+                ? 'C:/Program Files (x86)/CMake/bin/cmake.exe' : null)
+        if (cmake == null) {
+            logger.warn('CMake not found — skipping native DLL build')
+            return
+        }
+        def src = file('src/native/fsrvk')
+        def outDir = new File(src, 'build')
+        outDir.mkdirs()
+
+        def pb1 = new ProcessBuilder(cmake, '-B', outDir.absolutePath, '-S', src.absolutePath,
+                '-DCMAKE_BUILD_TYPE=Release')
+        pb1.directory(src)
+        pb1.inheritIO()
+        def proc1 = pb1.start()
+        proc1.waitFor()
+
+        def pb2 = new ProcessBuilder(cmake, '--build', outDir.absolutePath, '--config', 'Release')
+        pb2.directory(src)
+        pb2.inheritIO()
+        def proc2 = pb2.start()
+        proc2.waitFor()
+    }
+}
+
+// Copy fsrvk.dll into mod JAR if available (no duplicate strategy needed)
+processResources {
+    dependsOn 'buildNative'
+    // Track the fresh DLL as an input: when buildNative recompiles it, this
+    // task must re-run and re-bundle the new DLL (see buildNative outputs).
+    def nativeDll = file('src/native/fsrvk/build/Release/fsrvk.dll')
+    inputs.file(nativeDll)
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    from("${project.rootDir}/src/native/fsrvk/build/Release") {
+        include 'fsrvk.dll'
+        into 'natives'
+    }
+    from("${project.rootDir}/third_party/AMD-FSR-API/lib") {
+        include 'amd_fsr4_api.dll'
+        include 'amd_fidelityfx_loader_dx12.dll'
+        include 'amd_fidelityfx_framegeneration_dx12.dll'
+        into 'natives'
+    }
+    from("${project.rootDir}/third_party/AMD-FSR-API") {
+        include 'AMD_FSR_API_LICENSE.txt'
+        into 'natives'
+    }
+}

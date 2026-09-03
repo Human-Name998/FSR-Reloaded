@@ -1,0 +1,1 @@
+AMD FSR API SDK License - Replace with actual license from AMD developer portal

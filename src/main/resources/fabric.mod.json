@@ -1,0 +1,45 @@
+﻿{
+    "schemaVersion":  1,
+    "id":  "fsr-reloaded",
+    "version":  "${version}",
+    "name":  "FSR Reloaded",
+    "description":  "Adds AMD FidelityFX Super Resolution upscaling (FSR 1 bilinear + FSR 2 temporal) to Minecraft. Includes components under AMD Software License Agreement (/natives/AMD_FSR_API_LICENSE.txt).",
+    "authors":  [
+                    "Human-Name998"
+                ],
+    "contact":  {
+                    "homepage":  "https://modrinth.com/mod/fsr-reloaded",
+                    "sources":  "https://github.com/Human-Name998/FSR-Reloaded",
+                    "issues":  "https://github.com/Human-Name998/FSR-Reloaded/issues"
+                },
+    "license":  "MIT",
+    "icon":  "assets/fsr2mod/icon.png",
+    "environment":  "client",
+    "entrypoints":  {
+                        "client":  [
+                                       "com.fsr2mod.FSRMod"
+                                   ],
+                        "modmenu":  [
+                                        "com.fsr2mod.compat.ModMenuCompat"
+                                    ],
+                        "sodium:config_api_user":  [
+                                                       "com.fsr2mod.sodium.SodiumConfigEntry"
+                                                   ]
+                    },
+    "mixins":  [
+                    "fsr2mod.mixins.json"
+                ],
+    "depends":  {
+                    "fabricloader":  ">=0.19.3",
+                    "minecraft":  "~1.21.11",
+                    "java":  ">=21",
+                    "fabric-api":  "*"
+                },
+    "suggests":  {
+                     "modmenu":  ">=17.0.0"
+                 },
+    "conflicts":  {
+                      "optifabric":  "*",
+                      "optifine":  "*"
+                  }
+}

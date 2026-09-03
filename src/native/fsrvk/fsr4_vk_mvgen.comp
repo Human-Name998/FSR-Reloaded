@@ -1,0 +1,190 @@
+// ====================================================================
+// FSR4 MV + reactive + depth generation for the VulkanMod path.
+//
+// RECONSTRUCTED 2026-08-20 from the recovered 12,428-byte SPIR-V embedded in
+// fsr4_vk_mvgen_spv.h (spirv-cross decompile). The previous on-disk .comp was
+// the f7a8682 (Aug 6) baseline and the post-Aug-6 source (cam-motion plumb,
+// sky machinery, Y-flip, noRealDepth detection) was lost in a working-tree
+// deletion. This source reproduces the recovered binary's behavior in full,
+// PLUS the hand-zone identity fix (2026-08-20, "terrain is getting smoothened
+// but not my hand").
+// ====================================================================
+#version 450
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 0, binding = 0, r32f)   writeonly uniform image2D uOutputDepth;
+layout(set = 0, binding = 1, rg16f)  writeonly uniform image2D uOutputMV;
+layout(set = 0, binding = 2, r8)     writeonly uniform image2D uOutputReactive;
+// Real depth from the scaled framebuffer's depth attachment (binding 3). When
+// unavailable a 1x1 dummy (0.5) is bound and the shader auto-detects it via the
+// noRealDepth test below.
+layout(set = 0, binding = 3) uniform sampler2D uDepth;
+// Scene color from the scaled framebuffer (binding 4) — feeds the sky
+// classifier and the thin-detail/cutout detector.
+layout(set = 0, binding = 4) uniform sampler2D uColor;
+
+// Push constants: 2 mat4 = 128 bytes + 2 floats = 136 bytes total (the native
+// g_vkModMvGenPush[34] layout: matrices at offsets 0/64, uCamMotion at 128,
+// uCamRotDelta at 132).
+layout(push_constant) uniform PushConstants {
+    mat4  uInvCurrVP;   // inverse of current view-projection (CLEAN, unjittered)
+    mat4  uPrevVP;      // previous frame's view-projection
+    float uCamMotion;   // camera translation signal (blocks/sec; bob ~0.13, walk ~4.3)
+    float uCamRotDelta; // frame-to-frame rotation in radians
+} pc;
+
+void main() {
+    ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 renderSize = imageSize(uOutputMV);
+    if (p.x >= renderSize.x || p.y >= renderSize.y) return;
+
+    vec2 uv = (vec2(p) + 0.5) / vec2(renderSize);
+
+    float depth = textureLod(uDepth, uv, 0.0).x;
+    depth = clamp(depth, 0.0, 1.0);
+
+    // noRealDepth auto-detect (2026-08-09): the VK path normally has NO real
+    // depth (the world writes color but never depth into the scaled fb), so the
+    // depth attachment reads a uniform far/clear value. Sample 9 points across
+    // the depth texture; a near-zero range with a non-near mean => dummy/uniform
+    // depth => fall back to constant-depth reprojection (ndcZ=0.999, z~500).
+    float dMin = 1.0, dMax = 0.0, dSum = 0.0;
+    for (int i = 0; i < 9; i++) {
+        float sy = (float(i / 3) + 0.5) / 3.0;
+        float sx = (float(i % 3) + 0.5) / 3.0;
+        float s = textureLod(uDepth, vec2(sx, sy), 0.0).x;
+        dMin = min(dMin, s);
+        dMax = max(dMax, s);
+        dSum += s;
+    }
+    float dMean = dSum / 9.0;
+    bool noRealDepth = ((dMax - dMin) < 0.02) && (dMean >= 0.3);
+
+    float ndcZ;
+    float outDepthVal;
+    if (noRealDepth) {
+        ndcZ = 0.999;
+        outDepthVal = 0.5;
+    } else {
+        ndcZ = depth * 2.0 - 1.0;
+        outDepthVal = depth;
+    }
+
+    bool isFarPlane = (!noRealDepth) && (depth >= 0.999);
+
+    // Y-mapping (2026-08-08): VulkanMod renders with the negative-viewport
+    // trick so NDC +1 = TOP row; uv.y = 0 is the top row. Convert accordingly
+    // on BOTH the unproject and the reproject so MVs aren't vertically
+    // mirrored (the "terrain warps when I move the camera" root cause).
+    vec2 ndc = vec2(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0);
+    vec4 worldH = pc.uInvCurrVP * vec4(ndc, ndcZ, 1.0);
+    worldH /= worldH.w;
+
+    vec4 prevClip = pc.uPrevVP * vec4(worldH.xyz, 1.0);
+    vec2 prevNdc = prevClip.xy / prevClip.w;
+    vec2 prevUv = vec2(prevNdc.x * 0.5 + 0.5, 0.5 - prevNdc.y * 0.5);
+
+    vec2 mv = (prevUv - uv) * vec2(renderSize);
+
+    // 3x3 local color window — feeds the sky classifier, the flat-gradient
+    // camera-lock rule and the cutout detector.
+    float aMin = 1.0, aMax = 0.0;
+    vec3 cMin = vec3(1e9), cMax = vec3(-1e9);
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            ivec2 q = clamp(p + ivec2(dx, dy), ivec2(0), renderSize - 1);
+            vec4 c = texelFetch(uColor, q, 0);
+            aMin = min(aMin, c.w);
+            aMax = max(aMax, c.w);
+            cMin = min(cMin, c.xyz);
+            cMax = max(cMax, c.xyz);
+        }
+    }
+    float colorSpread = length(cMax - cMin);
+
+    vec3 skyCol = max(vec3(0.0), texelFetch(uColor, p, 0).xyz);
+    float skyLuma = dot(skyCol, vec3(0.2126, 0.7152, 0.0722));
+    float skyChroma = max(skyCol.x, max(skyCol.y, skyCol.z)) - min(skyCol.x, min(skyCol.y, skyCol.z));
+
+    // Sky classifier. With real depth: the far plane. Without it: the relaxed
+    // color heuristic (bright-desaturated white / blue), top half only.
+    bool isSkyPx = isFarPlane;
+    if (noRealDepth) {
+        bool isWhiteSkyPx = (skyLuma > 0.58) && (skyChroma < 0.12);
+        bool isBlueSkyPx = (skyLuma > 0.55) && (skyCol.z > max(skyCol.x, skyCol.y) * 1.15);
+        isSkyPx = (isWhiteSkyPx || isBlueSkyPx) && (uv.y < 0.5);
+    }
+    // Sky-like: far plane OR bright-desaturated (clouds/snow/sun carry real
+    // depth below 0.999, so the depth test alone misses them).
+    bool isSkyLike = isSkyPx || ((skyLuma > 0.5) && (skyChroma < 0.25));
+
+    // Flat-gradient camera-lock (2026-08-08 v4/v8): the sky-dome gradient is
+    // camera-LOCKED (mv=0 exact under all motion), but the pure-white sun/moon
+    // body is world-ANCHORED and must keep its real MV (white-body exclusion).
+    if (isSkyPx && colorSpread < 0.08 && !((skyLuma > 0.88) && (skyChroma < 0.06))) {
+        mv = vec2(0.0);
+    }
+
+    // Genuinely-still camera (2026-08-13): force mv=0 so the SDK accumulates in
+    // place (the idle bob's real micro-motion is absent from the constant-depth
+    // reprojection and would otherwise drift history).
+    if (pc.uCamMotion <= 0.5 && pc.uCamRotDelta <= 0.003) {
+        mv = vec2(0.0);
+    }
+
+    // HAND-ZONE IDENTITY FIX (2026-08-20, "terrain is getting smoothened but
+    // not my hand"): the first-person hand is rendered in VIEW space
+    // (camera-attached) — its true screen position is FIXED under ALL camera
+    // motion, but the reprojection above gives it the world-anchored MV of
+    // whatever world point it covers, so the SDK reads the hand's history at
+    // the wrong place every frame and can never accumulate it -> jagged
+    // fist/held-item edges while terrain reconstructs. Force identity
+    // reprojection (mv=0) for the bottom-center hand zone. Depth-gated when
+    // real depth exists (near hand < 0.55 in non-reversed depth); on the VK
+    // path real depth is normally unreachable (noRealDepth), so the screen
+    // position is used alone there. The reactive terms below stay intact: with
+    // mv=0 the MV ramp + cutout are inert (mvLen==0) and the hand inherits the
+    // same cam-motion floor as terrain, so it smooths exactly like terrain with
+    // no extra smear. Known tradeoffs (no pose gate — needs a previous-frame
+    // color staging that this shader doesn't have): (a) the hand swings/sways
+    // in view space and that motion is not in the MV field, so fast swings can
+    // smear (same accepted limitation as the FSR2/3 path); (b) looking straight
+    // down while walking can catch near ground in the zone.
+    bool isHand = (uv.y > 0.65) && (abs(uv.x - 0.5) < 0.45) && (noRealDepth || depth < 0.55);
+    if (isHand) {
+        mv = vec2(0.0);
+    }
+
+    imageStore(uOutputDepth, p, vec4(outDepthVal, 0.0, 0.0, 0.0));
+    imageStore(uOutputMV, p, vec4(mv, 0.0, 0.0));
+
+    // Reactive mask.
+    float mvLen = length(mv);
+    // Gentler ramp for sky-like pixels (their MVs are exact).
+    float mvReactive = smoothstep(0.5, isSkyLike ? 32.0 : 16.0, mvLen);
+    float motionFloor = isSkyLike ? 0.0 : smoothstep(0.4, 2.5, mvLen) * 0.15;
+    float reactive = max(mvReactive, motionFloor);
+
+    // no-real-depth translation floor (2026-08-08 ramp v2): constant-depth MVs
+    // can't track translation parallax, so deliberate movement floors the
+    // reactive mask (walk/sprint -> mostly fresh, no smear); only sub-bob idle
+    // keeps full accumulation.
+    if (noRealDepth) {
+        if (!isSkyLike) {
+            float dPosTick = pc.uCamMotion / 20.0;
+            float camFloor = clamp(max((dPosTick - 0.05) / 0.55, (pc.uCamRotDelta - 0.1) / 0.05), 0.0, 0.7);
+            reactive = max(reactive, camFloor);
+        }
+    }
+
+    // Thin-detail/cutout-edge reactive (flowers/grass/leaves): force fully
+    // reactive during genuine motion, sky-like excluded on the color term.
+    bool alphaEdge = (aMax - aMin) > 0.5;
+    bool colorEdge = colorSpread > 0.45;
+    bool camMoving = (pc.uCamMotion > 2.5) || (pc.uCamRotDelta > 0.01);
+    float cutoutReactive = (camMoving && mvLen > 0.5 && (alphaEdge || (colorEdge && !isSkyLike))) ? 1.0 : 0.0;
+    reactive = max(reactive, cutoutReactive);
+
+    imageStore(uOutputReactive, p, vec4(reactive, 0.0, 0.0, 0.0));
+}

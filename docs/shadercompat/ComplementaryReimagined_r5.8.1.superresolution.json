@@ -1,0 +1,59 @@
+{
+  "schema_version": 3,
+  "profiles": {
+    "*": {
+      "upscale": {
+        "enabled": true,
+        "trigger": {
+          "type": "before",
+          "pass": "final"
+        },
+        "internal_format": "rgba16f",
+        "inputs": {
+          "color": {
+            "enabled": true,
+            "src": "colortex3",
+            "region": [-1, -1, -1, -1]
+          },
+          "depth": {
+            "enabled": true,
+            "src": "depthtex1",
+            "region": [-1, -1, -1, -1]
+          }
+        },
+        "outputs": {
+          "upscaled_color": {
+            "enabled": true,
+            "target": ["colortex3"],
+            "region": [-1, -1, -2, -2]
+          }
+        },
+        "pre_exposure": {
+          "source": "CONST",
+          "type": "FLOAT",
+          "value": 1.0
+        },
+        "hdr": true,
+        "auto_exposure": false,
+        "motion_jittered": false,
+        "disabled_algorithms": []
+      },
+      "jitter": {
+        "enabled": true,
+        "source": "MOD",
+        "source_config": {
+          "jitter_offset": {
+            "source": "CONST",
+            "type": "VECTOR2F",
+            "value": [0.0, 0.0]
+          },
+          "jitter_sequence_length": {
+            "source": "CONST",
+            "type": "INT",
+            "value": 8
+          }
+        }
+      }
+    }
+  }
+}

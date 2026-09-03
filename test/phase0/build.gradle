@@ -1,0 +1,81 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group = 'com.fsr2mod'
+version = '0.1.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    lwjglVersion = '3.3.3'
+}
+
+// Detect platform — match LWJGL native classifier conventions
+def osName = System.getProperty('os.name').toLowerCase()
+def osArch = System.getProperty('os.arch').toLowerCase()
+def natives
+if (osName.contains('windows')) {
+    natives = osArch.contains('aarch64') ? 'windows-arm64' : 'windows'
+} else if (osName.contains('linux')) {
+    natives = osArch.contains('aarch64') || osArch.contains('arm') ? 'linux-arm64' : 'linux'
+} else if (osName.contains('mac')) {
+    natives = osArch.contains('aarch64') ? 'macos-arm64' : 'macos'
+} else {
+    throw new GradleException("Unsupported OS: ${osName}")
+}
+
+println "Phase 0 Spike — building for: ${natives}"
+
+dependencies {
+    implementation platform("org.lwjgl:lwjgl-bom:${lwjglVersion}")
+
+    // Core + GLFW (window + input) + OpenGL + Vulkan
+    implementation 'org.lwjgl:lwjgl'
+    implementation 'org.lwjgl:lwjgl-glfw'
+    implementation 'org.lwjgl:lwjgl-opengl'
+    implementation 'org.lwjgl:lwjgl-vulkan'
+
+    // Natives (Vulkan excluded — system vulkan-1.dll is used on Windows)
+    runtimeOnly "org.lwjgl:lwjgl::natives-${natives}"
+    runtimeOnly "org.lwjgl:lwjgl-glfw::natives-${natives}"
+    runtimeOnly "org.lwjgl:lwjgl-opengl::natives-${natives}"
+}
+
+application {
+    mainClass = 'Phase0Test'
+    // Pass through system properties for driver selection / debug
+    applicationDefaultJvmArgs = [
+        '-Xmx1g',
+        '-Dorg.lwjgl.system.allocator.debug=true',
+        '-Dvulkan.debug=true'
+    ]
+}
+
+// Convenience: run with validation layer enabled
+tasks.register('runValidated', JavaExec) {
+    group = 'application'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'Phase0Test'
+    jvmArgs = ['-Xmx1g',
+        '-Dorg.lwjgl.system.allocator.debug=true',
+        '-Dvulkan.validation=true'
+    ]
+}
+
+// Print effective classpath for debugging native loading issues
+tasks.register('printClasspath') {
+    doLast {
+        println "=== Runtime classpath ==="
+        sourceSets.main.runtimeClasspath.each { println it }
+    }
+}

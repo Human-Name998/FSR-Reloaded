@@ -1,0 +1,45 @@
+.gradle/
+build/
+bin/
+*.jar
+run/
+# local artifacts / logs
+fsr4_diag.log
+gr.txt
+lrm.txt
+comp.spv
+# build/session logs (native_build*.log, gradle_build*.log, native_cfg.log)
+*.log
+.freebuff/
+com/
+jar_extract/
+# CMake/native build output (build_fsrvk/ at repo root, plus per-dir build dirs)
+build_fsrvk/
+# local helper with hardcoded machine paths (MSVC env without vcvarsall)
+build_native_manual.ps1
+src/native/fsrvk/build/
+src/native/fsrvk/build_manual/
+# scratch: decompiled Minecraft sources kept only as local reference while porting
+net/
+temp_extracted/
+temp_test.java
+test_compile.java
+# agent/IDE session state
+.workbuddy-ai/
+# scratch disassembly + shader debug dumps (fsr4_vk_mvgen.spv IS tracked on purpose)
+src/native/fsrvk/header_dump.dis
+src/native/fsrvk/disk.spv.dis
+src/native/fsrvk/header_dump.spv
+src/native/fsrvk/*.spv.bak-*
+# downloaded toolchains: prebuilt DXC/LLVM binaries (~2.4 GB)
+tools/
+# Vendored FidelityFX sample binaries + media. Nothing in the build references
+# these: scripts/compile_fsr4_int8_spirv.sh uses the repo-root tools/ (downloaded
+# separately). Only FidelityFX-FSR2-OpenGL-master/src/ is needed.
+FidelityFX-FSR2-OpenGL-master/tools/
+FidelityFX-FSR2-OpenGL-master/media/
+FidelityFX-FSR2-OpenGL-master/screenshot.png
+# FSR reference + reverse-engineering dumps (research only, not build inputs).
+# NOTE: third_party/AMD-FSR-API/ IS a tracked build dependency - do not ignore it.
+third_party/FSR-4.0.2-reference/
+third_party/RE-of-FSR-4.1.0-Upscaling/
